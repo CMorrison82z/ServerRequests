@@ -47,6 +47,8 @@ if isServer then
 		thisPromise:catch(function(e)
 			if Promise.Error.isKind(e, Promise.Error.Kind.TimedOut) then
 				remoteEvent:FireClient(player, uuid)
+			else
+				warn(e)
 			end
 		end):finally(function(status)
 			if _conn then _conn:Disconnect() end
