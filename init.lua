@@ -61,7 +61,7 @@ if isServer then
 		
 		activeRequests[player][requestName][uuid] = thisPromise
 		
-		return thisPromise
+		return thisPromise, uuid
 	end
 	
 	-- Returns a dictionary of dictionaries per requestName that themselves consist of promises.
