@@ -9,7 +9,7 @@ Promises Cancelled on the server are automatically communicated to the client. T
 ### Server :
 
 ```lua
-InvokeClient(player : Player, requestName : string, timeout : number?, ...) -> Promise
+InvokeClient(player : Player, requestName : string, timeout : number?, ...) -> Promise, UUID
 ```
 
 Invokes the client, returning a Promise.
