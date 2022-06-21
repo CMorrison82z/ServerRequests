@@ -1,3 +1,9 @@
+-- Configuration : 
+
+local DEFAULT_TIMEOUT = 30
+
+-----------------------------------------------------------------------
+
 local HTTPService = game:GetService("HttpService")
 
 local Promise = require(script.Promise)
@@ -7,15 +13,13 @@ local isServer = game:GetService("RunService"):IsServer()
 local remoteFunction : RemoteFunction = isServer and Instance.new("RemoteFunction") or script:WaitForChild("RemoteFunction")
 local remoteEvent : RemoteEvent = isServer and Instance.new("RemoteEvent") or script:WaitForChild("RemoteEvent")
 
-if isServer then	
-	remoteFunction.Parent = script
-	remoteEvent.Parent = script
-end
-
 local module = {}
+module.Promise = Promise
+module.Error = Promise.Error
 
 if isServer then
-	local DEFAULT_TIMEOUT = 30
+	remoteFunction.Parent = script
+	remoteEvent.Parent = script
 
 	local activeRequests = {}
 	
@@ -78,21 +82,24 @@ if isServer then
 	end)
 else
 	local requestHandlers = {}
+	local requestHandlersPromise = {}
 	
-	function module.SetRequestHandler(requestName, handler : () -> any)
+	function module.SetRequestHandler(requestName, handler : ((any) -> any)?)
 		assert(type(requestName) == "string", "RequestName was not a string")
 		
-		if requestHandlers[requestName] then return error("Request handler for " .. requestName .. " already exists. Must be removed / replaced") end
+		if requestHandlers[requestName] or requestHandlersPromise[requestName]  then return error("Request handler for " .. requestName .. " already exists. Must be removed / replaced") end
 		requestHandlers[requestName] = handler
 	end
 	
-	-- This also behaves as "Remove"
-	function module.ReplaceRequestHandler(requestName, handler)
-		requestHandlers[requestName] = handler
+	function module.SetRequestHandlerPromise(requestName, handler : ((any) -> Promise)?)
+		assert(type(requestName) == "string", "RequestName was not a string")
+		
+		if requestHandlersPromise[requestName] or requestHandlers[requestName] then return error("Request handler for " .. requestName .. " already exists. Must be removed / replaced") end
+		requestHandlersPromise[requestName] = handler
 	end
 	
 	function module.GetRequestHandler(requestName)
-		return requestHandlers[requestName]
+		return requestHandlers[requestName] or requestHandlersPromise[requestName]
 	end
 	
 	local activeRequests = {}
@@ -105,13 +112,21 @@ else
 	end)
 	
 	remoteFunction.OnClientInvoke = function(uuid, requestName, ...)
-		if not requestHandlers[requestName] then return error("No request handler for " .. requestName) end -- Hoow are errors handled by remote functions ???? idk LOL
+		local newRequestPromise;
 		
-		warn("trying", uuid)
-		activeRequests[uuid] = Promise.try(requestHandlers[requestName], ...)
+		if requestHandlers[requestName] then
+			newRequestPromise = Promise.try(requestHandlers[requestName])
+		elseif 	requestHandlersPromise[requestName] then
+			newRequestPromise = requestHandlersPromise[requestName](...)
+		else
+			return error("No request handler for " .. requestName) -- Hoow are errors handled by remote functions ???? idk LOL
+		end
+
+		activeRequests[uuid] = newRequestPromise
 		
-		local succ, res = activeRequests[uuid]:await()
-		warn(succ, res)
+		assert(Promise.is(newRequestPromise), "Client '" .. requestName .. "' did not return a Promise.")
+		
+		local succ, res = newRequestPromise:await()
 
 		if succ then return res end
 	end
