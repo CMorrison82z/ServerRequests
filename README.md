@@ -23,7 +23,7 @@ Retrieve a dictionary of active requests for the player. The dictionary has keys
 ### Client :
 
 ```lua
-SetRequestHandler(requestName, handler : (any) -> Promise)
+SetRequestHandler(requestName, handler : (any) -> any)
 ```
 
 Set the handler for requests of  "requestName".
